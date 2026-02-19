@@ -4,7 +4,6 @@ go 1.24.0
 
 require (
 	github.com/sirupsen/logrus v1.4.2
-	golang.org/x/net v0.50.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 )
 

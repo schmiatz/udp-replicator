@@ -7,7 +7,6 @@ import (
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/ipv4"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -72,19 +71,19 @@ func main() {
 			if err != nil {
 				log.Fatalf("Could not get raw conn for %s: %s", forward, err)
 			}
-			if addr.IP.IsMulticast() {
-				var sysErr error
-				rawConn.Control(func(fd uintptr) {
-					sysErr = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_MULTICAST_TTL, *ttl)
-				})
-				if sysErr != nil {
-					log.Fatalf("Could not set multicast TTL on %s: %s", forward, sysErr)
+			var sysErr error
+			rawConn.Control(func(fd uintptr) {
+				if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_TTL, *ttl); err != nil {
+					sysErr = err
+					return
 				}
-			} else {
-				p := ipv4.NewConn(conn)
-				if err := p.SetTTL(*ttl); err != nil {
-					log.Fatalf("Could not set TTL on %s: %s", forward, err)
+				if err := syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_MULTICAST_TTL, *ttl); err != nil {
+					sysErr = err
+					return
 				}
+			})
+			if sysErr != nil {
+				log.Fatalf("Could not set TTL on %s: %s", forward, sysErr)
 			}
 		}
 
