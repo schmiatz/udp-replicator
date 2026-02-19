@@ -67,9 +67,16 @@ func main() {
 
 		// Set TTL if specified
 		if *ttl > 0 {
-			p := ipv4.NewConn(conn)
-			if err := p.SetTTL(*ttl); err != nil {
-				log.Fatalf("Could not set TTL on %s: %s", forward, err)
+			if addr.IP.IsMulticast() {
+				p := ipv4.NewPacketConn(conn)
+				if err := p.SetMulticastTTL(*ttl); err != nil {
+					log.Fatalf("Could not set multicast TTL on %s: %s", forward, err)
+				}
+			} else {
+				p := ipv4.NewConn(conn)
+				if err := p.SetTTL(*ttl); err != nil {
+					log.Fatalf("Could not set TTL on %s: %s", forward, err)
+				}
 			}
 		}
 
