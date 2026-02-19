@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"syscall"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/ipv4"
@@ -67,10 +68,17 @@ func main() {
 
 		// Set TTL if specified
 		if *ttl > 0 {
+			rawConn, err := conn.SyscallConn()
+			if err != nil {
+				log.Fatalf("Could not get raw conn for %s: %s", forward, err)
+			}
 			if addr.IP.IsMulticast() {
-				p := ipv4.NewPacketConn(conn)
-				if err := p.SetMulticastTTL(*ttl); err != nil {
-					log.Fatalf("Could not set multicast TTL on %s: %s", forward, err)
+				var sysErr error
+				rawConn.Control(func(fd uintptr) {
+					sysErr = syscall.SetsockoptInt(int(fd), syscall.IPPROTO_IP, syscall.IP_MULTICAST_TTL, *ttl)
+				})
+				if sysErr != nil {
+					log.Fatalf("Could not set multicast TTL on %s: %s", forward, sysErr)
 				}
 			} else {
 				p := ipv4.NewConn(conn)
