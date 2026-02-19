@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/ipv4"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -14,6 +15,7 @@ var (
 	listenIP   = kingpin.Flag("listen-ip", "IP to listen in").Default("0.0.0.0").Envar("LISTEN_IP").IP()
 	listenPort = kingpin.Flag("listen-port", "Port to listen on").Default("9000").Envar("LISTEN_PORT").Int()
 	bodySize   = kingpin.Flag("body-size", "Size of body to read").Default("4096").Envar("BODY_SIZE").Int()
+	ttl        = kingpin.Flag("ttl", "TTL for forwarded packets (0 = OS default)").Default("0").Envar("TTL").Int()
 
 	forwards = kingpin.Flag("forward", "ip:port to forward traffic to (port defaults to listen-port)").PlaceHolder("ip:port").Envar("FORWARD").Strings()
 
@@ -63,6 +65,14 @@ func main() {
 		}
 		defer conn.Close()
 
+		// Set TTL if specified
+		if *ttl > 0 {
+			p := ipv4.NewConn(conn)
+			if err := p.SetTTL(*ttl); err != nil {
+				log.Fatalf("Could not set TTL on %s: %s", forward, err)
+			}
+		}
+
 		targets = append(targets, conn)
 	}
 
@@ -81,6 +91,7 @@ func main() {
 	log.WithFields(log.Fields{
 		"ip":   *listenIP,
 		"port": *listenPort,
+		"ttl":  *ttl,
 	}).Infof("Server started")
 	for i, target := range targets {
 		log.WithFields(log.Fields{
